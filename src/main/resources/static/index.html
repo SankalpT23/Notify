@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifiy</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface2: #1a1a26;
+            --border: #2a2a3d;
+            --accent: #7c6aff;
+            --accent2: #ff6a9b;
+            --green: #4fffb0;
+            --text: #e8e8f0;
+            --muted: #6b6b8a;
+            --font-display: 'Syne', sans-serif;
+            --font-mono: 'Space Mono', monospace;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-display);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Background grid */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.3;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 48px;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo span {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 400;
+            background: none;
+            -webkit-text-fill-color: var(--muted);
+            display: block;
+            margin-top: 2px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--muted);
+            transition: all 0.3s;
+        }
+
+        .status-pill.connected {
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--muted);
+            transition: all 0.3s;
+        }
+
+        .status-pill.connected .dot {
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Grid layout */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .card-label {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 16px;
+        }
+
+        /* Connection card */
+        .connect-card {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .connect-info p {
+            font-size: 14px;
+            color: var(--muted);
+            margin-top: 6px;
+            font-family: var(--font-mono);
+        }
+
+        .connect-info h3 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 600;
+            padding: 10px 22px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #9580ff;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--accent2);
+            border: 1px solid var(--accent2);
+        }
+
+        .btn-danger:hover {
+            background: var(--accent2);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Input fields */
+        input[type="text"] {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent);
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--muted);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .send-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .send-row input {
+            flex: 1;
+        }
+
+        .btn-send {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #fff;
+            padding: 12px 24px;
+            white-space: nowrap;
+        }
+
+        .btn-send:hover {
+            opacity: 0.88;
+            transform: translateY(-1px);
+        }
+
+        .btn-send:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Messages feed */
+        .feed-card {
+            grid-column: 1 / -1;
+        }
+
+        .feed-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .feed-count {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--muted);
+            background: var(--surface2);
+            padding: 4px 10px;
+            border-radius: 100px;
+        }
+
+        #messages {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 360px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        #messages::-webkit-scrollbar { width: 4px; }
+        #messages::-webkit-scrollbar-track { background: transparent; }
+        #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        .message-item {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            animation: slideIn 0.3s ease;
+            border-left: 3px solid var(--accent);
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-item.own {
+            border-left-color: var(--accent2);
+        }
+
+        .msg-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .msg-sender {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+            font-family: var(--font-mono);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .message-item.own .msg-sender {
+            color: var(--accent2);
+        }
+
+        .msg-time {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .msg-text {
+            font-size: 15px;
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 0;
+            color: var(--muted);
+            font-family: var(--font-mono);
+            font-size: 13px;
+        }
+
+        .empty-state .icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+            display: block;
+            opacity: 0.4;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 20px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text);
+            transform: translateY(80px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success { border-color: var(--green); color: var(--green); }
+        .toast.error { border-color: var(--accent2); color: var(--accent2); }
+
+        @media (max-width: 600px) {
+            .grid { grid-template-columns: 1fr; }
+            .connect-card { flex-direction: column; align-items: flex-start; }
+            header { flex-direction: column; align-items: flex-start; gap: 16px; }
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+
+    <header>
+        <div class="logo">
+            Notifiy
+            <span>Real-time Notifications</span>
+        </div>
+        <div class="status-pill" id="statusPill">
+            <div class="dot"></div>
+            <span id="statusText">Disconnected</span>
+        </div>
+    </header>
+
+    <div class="grid">
+
+        <!-- Connect Card -->
+        <div class="card connect-card">
+            <div class="connect-info">
+                <h3>WebSocket Connection</h3>
+                <p id="connInfo">Connect to start receiving real-time notifications</p>
+            </div>
+            <div class="btn-group">
+                <button class="btn-primary" id="connectBtn" onclick="connect()">Connect</button>
+                <button class="btn-danger" id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+            </div>
+        </div>
+
+        <!-- Sender Card -->
+        <div class="card">
+            <div class="card-label">Your Identity</div>
+            <div class="input-group">
+                <input type="text" id="sender" placeholder="Enter your name..." maxlength="30"/>
+            </div>
+        </div>
+
+        <!-- Message Card -->
+        <div class="card">
+            <div class="card-label">Broadcast Message</div>
+            <div class="send-row">
+                <input type="text" id="message" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendMessage()"/>
+                <button class="btn-send" id="sendBtn" onclick="sendMessage()" disabled>Send</button>
+            </div>
+        </div>
+
+        <!-- Feed Card -->
+        <div class="card feed-card">
+            <div class="feed-header">
+                <div class="card-label" style="margin-bottom:0">Live Feed</div>
+                <span class="feed-count" id="feedCount">0 messages</span>
+            </div>
+            <div id="messages">
+                <div class="empty-state">
+                    <span class="icon">📡</span>
+                    Connect and send a message to see the live feed
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    let stompClient = null;
+    let messageCount = 0;
+
+    function showToast(msg, type = '') {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast show ' + type;
+        setTimeout(() => t.className = 'toast', 2800);
+    }
+
+    function setConnected(connected) {
+        const pill = document.getElementById('statusPill');
+        const statusText = document.getElementById('statusText');
+        const connInfo = document.getElementById('connInfo');
+
+        pill.className = 'status-pill' + (connected ? ' connected' : '');
+        statusText.textContent = connected ? 'Connected' : 'Disconnected';
+        connInfo.textContent = connected
+            ? 'Live — receiving real-time notifications'
+            : 'Connect to start receiving real-time notifications';
+
+        document.getElementById('connectBtn').disabled = connected;
+        document.getElementById('disconnectBtn').disabled = !connected;
+        document.getElementById('sendBtn').disabled = !connected;
+    }
+
+    function connect() {
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+
+        stompClient.connect({}, function () {
+            setConnected(true);
+            showToast('Connected to server', 'success');
+
+            stompClient.subscribe('/topic/notifications', function (msg) {
+                const body = JSON.parse(msg.body);
+                addMessage(body);
+            });
+        }, function () {
+            setConnected(false);
+            showToast('Connection failed', 'error');
+        });
+    }
+
+    function disconnect() {
+        if (stompClient) stompClient.disconnect();
+        setConnected(false);
+        showToast('Disconnected');
+    }
+
+    function sendMessage() {
+        const sender = document.getElementById('sender').value.trim() || 'Anonymous';
+        const message = document.getElementById('message').value.trim();
+        if (!message) return;
+
+        stompClient.send('/app/notify', {}, JSON.stringify({ sender, message }));
+        document.getElementById('message').value = '';
+    }
+
+    function addMessage(body) {
+        const container = document.getElementById('messages');
+        const currentSender = document.getElementById('sender').value.trim() || 'Anonymous';
+
+        // Remove empty state
+        const empty = container.querySelector('.empty-state');
+        if (empty) empty.remove();
+
+        messageCount++;
+        document.getElementById('feedCount').textContent =
+            messageCount + (messageCount === 1 ? ' message' : ' messages');
+
+        const time = body.timestamp
+            ? new Date(body.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        const isOwn = body.sender === currentSender;
+
+        const div = document.createElement('div');
+        div.className = 'message-item' + (isOwn ? ' own' : '');
+        div.innerHTML = `
+            <div class="msg-top">
+                <span class="msg-sender">${body.sender}</span>
+                <span class="msg-time">${time}</span>
+            </div>
+            <div class="msg-text">${body.message}</div>
+        `;
+
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+</script>
+</body>
+</html>
